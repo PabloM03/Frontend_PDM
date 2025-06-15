@@ -1,11 +1,9 @@
-# .github/workflows/build-and-upload.yml
 name: 📦 Build APK y subir a Google Drive
 
 on:
-  # se ejecuta al hacer push a main, o manualmente desde “Run workflow”
   push:
-    branches: [ main ]
-  workflow_dispatch:
+    branches: [ main ]           # ajusta si tu rama principal se llama distinto
+  workflow_dispatch:             # permite lanzarlo manualmente desde Actions
 
 jobs:
   build-and-upload:
@@ -13,16 +11,19 @@ jobs:
 
     steps:
     # 1) Clonar el repo
-    - uses: actions/checkout@v4
+    - name: Checkout
+      uses: actions/checkout@v4
 
-    # 2) JDK 21
-    - uses: actions/setup-java@v4
+    # 2) Configurar JDK 21 (Temurin)
+    - name: Set up JDK 21
+      uses: actions/setup-java@v4
       with:
         distribution: temurin
         java-version: '21'
 
-    # 3) Caché de Gradle (acelera compilaciones posteriores)
-    - uses: actions/cache@v4
+    # 3) Caché de Gradle (acelera builds)
+    - name: Cache Gradle
+      uses: actions/cache@v4
       with:
         path: |
           ~/.gradle/caches
@@ -30,29 +31,42 @@ jobs:
         key: gradle-${{ runner.os }}-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
         restore-keys: gradle-${{ runner.os }}-
 
-    # 4) Asegurar permiso de ejecución
+    # 4) Dar permiso de ejecución al wrapper
     - name: Make gradlew executable
       run: chmod +x ./gradlew
 
-    # 5) Compilar el APK (Debug)
-    - name: Build APK
+    # 5) Compilar APK debug (igual que en Android Studio)
+    - name: Build APK (Debug)
       run: ./gradlew :app:assembleDebug --build-cache --parallel --daemon
 
-    # 6) Guardar el APK como artefacto (descarga directa en la pestaña “Artifacts”)
-    - name: Publish artifact
+    # 6) Subir el APK como artefacto descargable (opcional pero útil)
+    - name: Upload APK as artifact
       uses: actions/upload-artifact@v4
       with:
-        name: app-debug-${{ github.run_number }}.apk
+        name: app-debug.apk
         path: app/build/outputs/apk/debug/app-debug.apk
 
-    # 7) Subirlo a Google Drive con nombre único (run_number evita
-    #    colisiones y la “papelera fantasma”)
-    - name: Upload to Google Drive
+    # 7) Subir APK a Google Drive y compartirlo contigo
+    - name: Upload APK to Google Drive
       uses: mathisve/gdrive-upload-action@main
       with:
-        credentials:  ${{ secrets.GDRIVE_SERVICE_ACCOUNT_KEY_BASE64 }}
-        encoded:      true
-        filename:     app/build/outputs/apk/debug/app-debug.apk
-        name:         fitlife-${{ github.run_number }}.apk   # ← único
-        folderId:     ${{ secrets.GDRIVE_FOLDER_ID }}
-        overwrite:    false                                  # ← evita papelera
+        # Secret que contiene **TODO** el JSON de la service-account pero codificado en base64
+        credentials: ${{ secrets.GDRIVE_SERVICE_ACCOUNT_KEY_BASE64 }}
+        encoded:     true                         # el secret está base64-encoded
+
+        # Fichero origen (el que acabamos de compilar)
+        filename:    app/build/outputs/apk/debug/app-debug.apk
+
+        # Nombre final → añade el nº de ejecución para no sobrescribir
+        name:        fitlife-${{ github.run_number }}.apk
+
+        # Carpeta de destino (solo el ID, sin la URI ni parámetros)
+        folderId:    ${{ secrets.GDRIVE_FOLDER_ID }}
+
+        # Si vuelves a usar el mismo nombre exacto, sobreescribe; con run_number
+        # suele ser único, pero dejamos esto por si acaso
+        overwrite:   true
+
+        # Comparte el archivo con tu usuario para que sea visible
+        shareWith:   pamongar03@gmail.com         # cámbialo a tu e-mail real
+        role:        writer                       # permisos que obtendrás
