@@ -27,18 +27,43 @@ jobs:
           chmod +x ./gradlew
           ./gradlew :app:assembleDebug --build-cache --parallel --daemon
 
-      - name: Upload APK artifact
+      - name: Upload APK como artefacto
         uses: actions/upload-artifact@v4
         with:
           name: app-debug.apk
           path: app/build/outputs/apk/debug/app-debug.apk
 
-      - name: Upload to Drive (keep all versions)
+      # ─────────────────────────────────────────────────────────────
+      # 1) Subir a Drive (quedará “owned” por la Service Account)
+      # ─────────────────────────────────────────────────────────────
+      - id: upload
+        name: Upload APK to Google Drive
         uses: mathisve/gdrive-upload-action@main
         with:
-          credentials: ${{ secrets.GDRIVE_SERVICE_ACCOUNT_KEY_BASE64 }}
-          encoded: true
-          filename: app/build/outputs/apk/debug/app-debug.apk
-          name: fitlife-${{ github.run_number }}.apk   # único
-          folderId: ${{ secrets.GDRIVE_FOLDER_ID }}
-          overwrite: false
+          credentials:  ${{ secrets.GDRIVE_SERVICE_ACCOUNT_KEY_BASE64 }}
+          encoded:       true
+          filename:      app/build/outputs/apk/debug/app-debug.apk
+          name:          fitlife-${{ github.run_number }}.apk
+          folderId:      ${{ secrets.GDRIVE_FOLDER_ID }}
+          overwrite:     false            # mantiene versiones anteriores
+
+      # ─────────────────────────────────────────────────────────────
+      # 2) AUTENTICAR Service Account para poder llamar a la API
+      # ─────────────────────────────────────────────────────────────
+      - id: gauth
+        name: Auth as Service Account
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GDRIVE_SERVICE_ACCOUNT_KEY_BASE64 }}
+          export_environment_variables: true   # nos da $GOOGLE_ACCESS_TOKEN
+
+      # ─────────────────────────────────────────────────────────────
+      # 3) Transferir la propiedad al usuario final
+      # ─────────────────────────────────────────────────────────────
+      - name: Make ${{ secrets.OWNER_EMAIL }} the owner
+        run: |
+          curl -s -X POST \
+            -H "Authorization: Bearer $GOOGLE_ACCESS_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d "{\"role\":\"owner\",\"type\":\"user\",\"emailAddress\":\"${{ secrets.OWNER_EMAIL }}\"}" \
+            "https://www.googleapis.com/drive/v3/files/${{ steps.upload.outputs.fileId }}/permissions?transferOwnership=true"
