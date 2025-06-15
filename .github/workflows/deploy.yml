@@ -41,4 +41,4 @@ jobs:
           filename: app/build/outputs/apk/debug/app-debug.apk
           name: fitlife-${{ github.run_number }}.apk   # único
           folderId: ${{ secrets.GDRIVE_FOLDER_ID }}
-          overwrite: false
+          overwrite: true
