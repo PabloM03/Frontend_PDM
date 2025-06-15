@@ -50,8 +50,9 @@ jobs:
     - name: Upload to Google Drive
       uses: mathisve/gdrive-upload-action@main
       with:
-        credentials:  ${{ secrets.GDRIVE_SERVICE_ACCOUNT_KEY_BASE64 }}   # JSON en base64
-        encoded:       true
-        filename:      app/build/outputs/apk/debug/app-debug.apk         # ruta local
-        name:          fitlife-${{ github.run_number }}.apk              # nombre en Drive
-        folderId:      ${{ secrets.GDRIVE_FOLDER_ID }}                   # carpeta destino
+        credentials:  ${{ secrets.GDRIVE_SERVICE_ACCOUNT_KEY_BASE64 }}
+        encoded:      true
+        filename:     app/build/outputs/apk/debug/app-debug.apk
+        name:         fitlife-${{ github.run_number }}.apk   # ← único
+        folderId:     ${{ secrets.GDRIVE_FOLDER_ID }}
+        overwrite:    false                                  # ← evita papelera
